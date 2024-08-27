@@ -1,0 +1,42 @@
+Answer 1:
+function 1 是一個在 redux-saga 中的一個 generator function。
+主要是用來打某個 api，並且同時做了成功 / 失敗 / 以及中途中斷的情況的處理。
+成功 / 失敗 / 中途中斷的情況發生後都會 dispatch 相對應的 action 到 redux store 中。
+
+Answer 2:
+可以，call function2 可以中斷 api call。
+但可能比較好的方式是用 yield cancel 的方式去中斷 saga task，再在 finally 的部份檢查 task 是否被取消，並且中斷 api call。
+
+Answer 3:
+可以改成這樣，如果 saga task 因為頻繁觸發被取消的話，在 finally 的部份檢查 task 是否被取消，並且中斷 api call。
+
+import { call, put, cancelled } from "redux-saga/effects";
+
+function* function1(action) {
+    const ctrl = new AbortController();
+    const config = {
+        method: "POST",
+        url: "https://some-endpoint-url.com",
+        data: action.payload,
+        signal: ctrl.signal,
+    };
+
+    try {
+        const { data } = yield call(/** a axios request with config */);
+
+        yield put(/** reducer 1 */);
+    } catch (e) {
+        if (e.response) {
+            const er = e.response;
+
+            yield put(/** reducer 2 */);
+
+            return;
+        }
+    } finally {
+        if (yield cancelled()) {
+            ctrl.abort();
+            yield put(/** reducer 3 */);
+        }
+    }
+}
